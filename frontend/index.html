@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Warehouse SKU Search</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 40px auto;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      font-size: 20px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      cursor: pointer;
+      margin-bottom: 15px;
+    }
+
+    .result {
+      border: 1px solid #ccc;
+      padding: 15px;
+      min-height: 100px;
+      text-align: left;
+      font-size: 18px;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h2>Warehouse SKU Search</h2>
+
+  <input id="skuInput" type="text" placeholder="Scan or enter SKU" autofocus />
+
+  <div class="result" id="result">Waiting for input...</div>
+  <button id="conflictBtn" onclick="reportConflict()" style="display:none;">
+    ⚠️ Location Occupied
+    </button>
+  <div id="sizeInput" style="display:none; margin-top:20px;">
+  <h3>New SKU - Enter Size</h3>
+
+  <input id="length" placeholder="Length" />
+  <input id="width" placeholder="Width" />
+  <input id="height" placeholder="Height" />
+
+  <button onclick="searchBySize()">Find Location</button>
+  </div>
+
+  <script>
+
+let currentResult = null;
+let currentSKU = null;
+
+// ================= 搜SKU =================
+async function searchSKU() {
+
+    const sku = document.getElementById("skuInput").value.trim();
+    const resultDiv = document.getElementById("result");
+
+    if (!sku) {
+        resultDiv.innerHTML = "Please enter SKU";
+        return;
+    }
+
+    currentSKU = sku;
+    resultDiv.innerHTML = "Searching...";
+
+    try {
+        const response = await fetch("http://10.153.57.190:8000/search", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ sku: sku })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            currentResult = {
+                sku: data.sku,
+                location: data.location
+            };
+            document.getElementById("conflictBtn").style.display = "block";
+
+            resultDiv.innerHTML = `
+                <b>SKU:</b> ${data.sku}<br><br>
+                <b>Location:</b> ${data.location}<br><br>
+                <b>Length:</b> ${data.length}"<br><br>
+                <b>Remaining:</b> ${data.remaining}"
+            `;
+
+            // ⭐ 自动清空输入框（关键）
+            document.getElementById("skuInput").value = "";
+
+            // ⭐ 自动focus（继续扫码）
+            document.getElementById("skuInput").focus();
+
+        } else {
+            document.getElementById("conflictBtn").style.display = "none";
+
+            currentResult = null;
+
+            if (data.message === "SKU not found in database") {
+
+                document.getElementById("sizeInput").style.display = "block";
+
+                resultDiv.innerHTML = `
+                    <b>SKU:</b> ${sku}<br><br>
+                    <b>Message:</b> SKU not found in database<br><br>
+                    👉 Please enter size below
+                `;
+
+                document.getElementById("length").focus();
+
+            } else {
+                document.getElementById("sizeInput").style.display = "none";
+                resultDiv.innerHTML = data.message;
+            }
+        }
+
+    } catch (error) {
+        resultDiv.innerHTML = "Request failed: " + error;
+    }
+}
+
+// ================= 新品尺寸 =================
+async function searchBySize() {
+
+    const l = parseFloat(document.getElementById("length").value);
+    const w = parseFloat(document.getElementById("width").value);
+    const h = parseFloat(document.getElementById("height").value);
+
+    const resultDiv = document.getElementById("result");
+
+    if (isNaN(l) || isNaN(w) || isNaN(h)) {
+        resultDiv.innerHTML = "Please enter valid dimensions";
+        return;
+    }
+
+    resultDiv.innerHTML = "Finding location...";
+
+    const res = await fetch("http://10.153.57.190:8000/search_by_size", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            length: l,
+            width: w,
+            height: h
+        })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+
+        currentResult = {
+            sku: currentSKU,
+            location: data.location,
+            length: data.length
+        };
+
+        resultDiv.innerHTML = `
+            <b>New SKU:</b> ${currentSKU}<br><br>
+            <b>Location:</b> ${data.location}<br><br>
+            <b>Length:</b> ${data.length}"<br><br>
+            <b>Remaining:</b> ${data.remaining}"
+        `;
+
+    } else {
+        resultDiv.innerHTML = data.message;
+    }
+}
+
+async function reportConflict() {
+
+    if (!currentResult) return;
+
+    try {
+        const res = await fetch("http://10.153.57.190:8000/drift", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                sku: currentResult.sku,
+                location: currentResult.location
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+
+            alert("⚠️ Conflict reported");
+
+            document.getElementById("conflictBtn").style.display = "none";
+
+            document.getElementById("skuInput").value = "";
+            document.getElementById("skuInput").focus();
+
+            document.getElementById("result").innerHTML = "Conflict logged. Scan next.";
+
+        } else {
+            alert("❌ Failed: " + data.message);
+        }
+
+    } catch (error) {
+        alert("❌ Request failed: " + error);
+    }
+}
+
+// ================= 扫码自动触发 =================
+document.getElementById("skuInput").addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
+        searchSKU();
+    }
+});
+
+</script>
+</body>
+</html>
