@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+
+# 虚拟环境
+.venv/
+
+# 数据库
+*.db
+
+# 日志
+*.csv
+
+# GDrive 数据
+gdrive/data/
+
+# Excel 数据（如果你也不想传）
+*.xlsx
+
+# 打包文件
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
