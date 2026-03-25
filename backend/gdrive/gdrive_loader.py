@@ -1,24 +1,11 @@
-import requests
-import os
 from datetime import date
+import os
 
-
-def download_file(file_id, output):
-    url = f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=xlsx"
-
-    r = requests.get(url)
-
-    if r.status_code != 200:
-        raise Exception("Download failed")
-
-    with open(output, "wb") as f:
-        f.write(r.content)
+from gdrive.inventory_query import fetch_all as fetch_inventory, export_excel
+from gdrive.empty_cell import fetch_all as fetch_empty, COLUMN_MAPPING, COLUMN_ORDER
 
 
 def download_daily_files():
-    inventory_id = "1Upbjv3sonyg40F9Rk1wTp7IltCK4ROB-"
-    empty_id = "1NV_g66yMuLzttr2X7fvx71oMjTpPlQ2d"
-
     os.makedirs("gdrive/data", exist_ok=True)
 
     today = date.today().strftime("%Y-%m-%d")
@@ -26,10 +13,27 @@ def download_daily_files():
     inventory_path = f"gdrive/data/inventory_{today}.xlsx"
     empty_path = f"gdrive/data/empty_{today}.xlsx"
 
+    # ===== 拉 inventory =====
     if not os.path.exists(inventory_path):
-        download_file(inventory_id, inventory_path)
+        print("Fetching inventory from API...")
+        data = fetch_inventory()
+        export_excel(data, inventory_path)
 
+    # ===== 拉 empty =====
     if not os.path.exists(empty_path):
-        download_file(empty_id, empty_path)
+        print("Fetching empty slots from API...")
+        rows = fetch_empty()
+
+        import pandas as pd
+
+        df = pd.DataFrame(rows)
+        df = df.rename(columns=COLUMN_MAPPING)
+
+        for col in COLUMN_ORDER:
+            if col not in df.columns:
+                df[col] = ""
+
+        df = df[COLUMN_ORDER]
+        df.to_excel(empty_path, index=False)
 
     return inventory_path, empty_path
