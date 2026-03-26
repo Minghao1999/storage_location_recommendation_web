@@ -8,6 +8,7 @@ from sku_finder import find_location_by_sku
 from datetime import datetime
 from sku_finder import find_location_by_size
 from logger import log_search, mark_shift
+from gdrive.wms_fallback import query_wms_by_sku
 
 app = FastAPI()
 
@@ -130,8 +131,31 @@ def search_sku(req: SKURequest):
             "remaining": space
         }
 
-    # ===== SKU不存在 =====
+    # ===== SKU不存在（本地没找到）=====
     if item_len is None:
+
+        print("Local DB miss → querying WMS...")
+
+        rows = query_wms_by_sku(sku)
+
+        # ===== WMS 找到了 =====
+        if rows:
+            log_search(
+                sku=sku,
+                location=None,
+                item_len=None,
+                space=None,
+                success=True
+            )
+
+            return {
+                "success": True,
+                "sku": sku,
+                "message": "Found in WMS",
+                "data": rows[:5]   # 返回前5条
+            }
+
+        # ===== WMS 也没有 =====
         log_search(
             sku=sku,
             location=None,
@@ -139,10 +163,11 @@ def search_sku(req: SKURequest):
             space=None,
             success=False
         )
+
         return {
             "success": False,
             "sku": sku,
-            "message": "SKU not found in database"
+            "message": "WMS has not yet entered information."
         }
 
     # ===== 没有库位 =====

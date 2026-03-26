@@ -120,12 +120,12 @@ async function searchSKU() {
 
             if (data.message === "SKU not found in database") {
 
-                document.getElementById("sizeInput").style.display = "block";
+                // ⭐ 不再弹尺寸输入
+                document.getElementById("sizeInput").style.display = "none";
 
                 resultDiv.innerHTML = `
                     <b>SKU:</b> ${sku}<br><br>
-                    <b>Message:</b> SKU not found in database<br><br>
-                    👉 Please enter size below
+                    <b>Message:</b> WMS has not yet entered information.
                 `;
 
                 document.getElementById("length").focus();
