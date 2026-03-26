@@ -48,8 +48,15 @@ def query_wms_by_sku(sku):
 
     # ===== 再按客户SKU查 =====
     rows = fetch_with_field("goods_alias_code")
+    if rows:
+        return rows
+
+    #最后按商品条码查
+    rows = fetch_with_field("barcode")
 
     return rows
+
+    
 
 
 def build_body_with_condition(field, value):

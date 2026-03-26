@@ -9,9 +9,10 @@ def load_data(inventory_path, empty_path):
 
     inventory["CLIENT_SKU"] = inventory["客户商品编码"].astype(str).str.strip().str.upper()
     inventory["JD_SKU"] = inventory["京东商品编码"].astype(str).str.strip().str.upper()
-    
+    inventory["BARCODE"] = inventory["商品条码"].astype(str).str.strip().str.upper()
+
     inventory["SKU_LIST"] = inventory.apply(
-        lambda row: [row["CLIENT_SKU"], row["JD_SKU"]],
+        lambda row: [row["CLIENT_SKU"], row["JD_SKU"], row["BARCODE"]],
         axis=1
     )
 

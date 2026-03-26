@@ -73,7 +73,6 @@ def report_drift(req: DriftRequest):
 
 
 @app.post("/search")
-@app.post("/search")
 def search_sku(req: SKURequest):
     global df, inventory_all
 
@@ -86,6 +85,20 @@ def search_sku(req: SKURequest):
         }
 
     location, item_len, space = find_location_by_sku(df, inventory_all, sku)
+
+    # ================== 新增：从总表中提取商品条码 ==================
+    barcode = ""
+    if inventory_all is not None and "SKU_LIST" in inventory_all.columns:
+        # 寻找 SKU_LIST 包含当前搜索词的那一行数据
+        match_row = inventory_all[
+            inventory_all["SKU_LIST"].apply(lambda lst: sku in lst if isinstance(lst, list) else False)
+        ]
+        if not match_row.empty and "BARCODE" in match_row.columns:
+            # 提取条码并进行清洗
+            b_val = str(match_row.iloc[0]["BARCODE"]).strip()
+            if b_val.upper() not in ["NAN", "NONE", ""]:
+                barcode = b_val
+    # ===============================================================
 
     # ===== 有推荐 =====
     if location:
@@ -128,7 +141,8 @@ def search_sku(req: SKURequest):
             "sku": sku,
             "location": location,
             "length": item_len,
-            "remaining": space
+            "remaining": space,
+            "barcode": barcode  # 👉 这里把 barcode 发给前端！
         }
 
     # ===== SKU不存在（本地没找到）=====
@@ -140,19 +154,61 @@ def search_sku(req: SKURequest):
 
         # ===== WMS 找到了 =====
         if rows:
-            log_search(
-                sku=sku,
-                location=None,
-                item_len=None,
-                space=None,
-                success=True
-            )
+            wms_barcode = barcode
+            if not wms_barcode and len(rows) > 0:
+                wms_barcode = rows[0].get("barcode", "")
+                
+            # 👉 1. 从 WMS 数据中提取长、宽、高 (如果为空则默认为 0)
+            w_len = float(rows[0].get("length", 0) or 0)
+            w_wid = float(rows[0].get("width", 0) or 0)
+            w_hei = float(rows[0].get("height", 0) or 0)
+            
+            # 算出最长边作为 item_len
+            wms_item_len = max(w_len, w_wid, w_hei)
 
+            # 👉 2. 拿着 WMS 给的尺寸，去调用你的“按尺寸推荐储位”函数！
+            rec_location, final_len, space = find_location_by_size(df, wms_item_len)
+
+            # 如果仓库满了，算不出推荐储位
+            if not rec_location:
+                log_search(sku=sku, location=None, item_len=wms_item_len, space=None, success=False)
+                return {
+                    "success": False,
+                    "sku": sku,
+                    "length": wms_item_len,
+                    "barcode": wms_barcode,
+                    "message": "Found dimensions in WMS, but warehouse is full!"
+                }
+
+            # 👉 3. 成功算出了新储位，把它写入 df 锁定，防止重复推荐
+            try:
+                parts = rec_location.split("-")
+                A = int(parts[0].replace("A",""))
+                R = int(parts[1].replace("R",""))
+                L = int(parts[2].replace("L",""))
+                B = int(parts[3].replace("B",""))
+                
+                df.loc[len(df)] = {
+                    "A": A, "R": R, "L": L, "B": B,
+                    "长": final_len, "宽": 0, "高": 0,
+                    "status": "occupied", "SKU_ALL": sku
+                }
+            except:
+                pass # 解析失败忽略
+
+            # 记录成功日志
+            log_search(sku=sku, location=rec_location, item_len=final_len, space=space, success=True)
+
+            # 👉 4. 把算出来的“全新推荐储位”发给前端
             return {
                 "success": True,
                 "sku": sku,
-                "message": "Found in WMS",
-                "data": rows[:5]   # 返回前5条
+                "barcode": wms_barcode,  
+                "location": rec_location,   # 这里现在是系统推荐的储位，不再是 WMS 原有储位了！
+                "length": final_len,       
+                "remaining": space,  
+                "message": "Found in WMS and Recommended new location",
+                "data": rows[:5]   
             }
 
         # ===== WMS 也没有 =====
@@ -183,6 +239,7 @@ def search_sku(req: SKURequest):
         "success": False,
         "sku": sku,
         "length": item_len,
+        "barcode": barcode,  # 👉 即使没库位也发回条码
         "message": "No available location"
     }
 
