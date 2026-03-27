@@ -25,6 +25,15 @@ def get_slot_capacity(R):
         return 80
     return 120
 
+def is_fully_empty(df, A, R, L):
+    subset = df[
+        (df["A"] == A) &
+        (df["R"] == R) &
+        (df["L"] == L)
+    ]
+
+    return not any(subset["status"] == "occupied")
+
 
 def get_remaining_space(df):
     occupied = df[df["status"] == "occupied"].copy()
@@ -58,7 +67,13 @@ def get_remaining_space(df):
     return remaining
 
 
-def find_available_B(df, A, R, L):
+def find_available_B(df, A, R, L, item_len=None):
+    if item_len is not None and item_len > 120:
+        if is_fully_empty(df, A, R, L):
+            return 1  # 直接放 B1
+        else:
+            return None
+        
     subset = df[
         (df["A"] == A) &
         (df["R"] == R) &
@@ -92,14 +107,20 @@ def find_location_by_size(df, item_len):
             if k[2] == level
             and k[0] >= MIN_A
             and is_valid_slot(k[0], k[1])
-            and can_fit_pallet(v, item_len)
-            and find_available_B(df, k[0], k[1], k[2]) is not None
+            and (
+                # ⭐ 普通货
+                (item_len <= 120 and can_fit_pallet(v, item_len))
+                
+                # ⭐ 超长货
+                or (item_len > 120 and is_fully_empty(df, k[0], k[1], k[2]))
+            )
+            and find_available_B(df, k[0], k[1], k[2], item_len) is not None
         }
 
         if candidates:
             best = min(candidates, key=candidates.get)
             A, R, L = best
-            B = find_available_B(df, A, R, L)
+            B = find_available_B(df, A, R, L, item_len)
             return f"A{A}-R{R}-L{L}-B{B}", item_len, candidates[best]
 
     return None, item_len, None
@@ -145,14 +166,20 @@ def find_location_by_sku(df, inventory_all, sku):
             and k[2] == level
             and k[0] >= MIN_A
             and is_valid_slot(k[0], k[1])
-            and can_fit_pallet(v, item_len)
-            and find_available_B(df, k[0], k[1], k[2]) is not None
+            and (
+                # ⭐ 普通货
+                (item_len <= 120 and can_fit_pallet(v, item_len))
+                
+                # ⭐ 超长货
+                or (item_len > 120 and is_fully_empty(df, k[0], k[1], k[2]))
+            )
+            and find_available_B(df, k[0], k[1], k[2], item_len) is not None
         }
 
         if candidates:
             best = min(candidates, key=candidates.get)
             A, R, L = best
-            B = find_available_B(df, A, R, L)
+            B = find_available_B(df, A, R, L, item_len)
             return f"A{A}-R{R}-L{L}-B{B}", item_len, candidates[best]
 
     # 2) 再找完全空储位
@@ -163,14 +190,20 @@ def find_location_by_sku(df, inventory_all, sku):
             and k[2] == level
             and k[0] >= MIN_A
             and is_valid_slot(k[0], k[1])
-            and can_fit_pallet(v, item_len)
-            and find_available_B(df, k[0], k[1], k[2]) is not None
+            and (
+                # ⭐ 普通货
+                (item_len <= 120 and can_fit_pallet(v, item_len))
+                
+                # ⭐ 超长货
+                or (item_len > 120 and is_fully_empty(df, k[0], k[1], k[2]))
+            )
+            and find_available_B(df, k[0], k[1], k[2], item_len) is not None
         }
 
         if candidates:
             best = min(candidates, key=candidates.get)
             A, R, L = best
-            B = find_available_B(df, A, R, L)
+            B = find_available_B(df, A, R, L, item_len)
             return f"A{A}-R{R}-L{L}-B{B}", item_len, candidates[best]
 
     # 3) 兜底：跨层
@@ -180,14 +213,20 @@ def find_location_by_sku(df, inventory_all, sku):
             if k[2] == level
             and k[0] >= MIN_A
             and is_valid_slot(k[0], k[1])
-            and can_fit_pallet(v, item_len)
-            and find_available_B(df, k[0], k[1], k[2]) is not None
+            and (
+                # ⭐ 普通货
+                (item_len <= 120 and can_fit_pallet(v, item_len))
+                
+                # ⭐ 超长货
+                or (item_len > 120 and is_fully_empty(df, k[0], k[1], k[2]))
+            )
+            and find_available_B(df, k[0], k[1], k[2], item_len) is not None
         }
 
         if candidates:
             best = min(candidates, key=candidates.get)
             A, R, L = best
-            B = find_available_B(df, A, R, L)
+            B = find_available_B(df, A, R, L, item_len)
             return f"A{A}-R{R}-L{L}-B{B}", item_len, candidates[best]
 
     return None, item_len, None
