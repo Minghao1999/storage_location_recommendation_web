@@ -7,6 +7,14 @@ import math
 
 PALLET_SIZE = 40
 
+INVALID_SLOTS = {
+    (4, 4),
+    (4, 6)
+}
+
+def is_valid_slot(A, R):
+    return (A, R) not in INVALID_SLOTS
+
 def can_fit_pallet(space, item_len):
     required = math.ceil(item_len / PALLET_SIZE)
     available = int(space // PALLET_SIZE)
@@ -83,6 +91,7 @@ def find_location_by_size(df, item_len):
             k: v for k, v in remaining.items()
             if k[2] == level
             and k[0] >= MIN_A
+            and is_valid_slot(k[0], k[1])
             and can_fit_pallet(v, item_len)
             and find_available_B(df, k[0], k[1], k[2]) is not None
         }
@@ -135,6 +144,7 @@ def find_location_by_sku(df, inventory_all, sku):
             if k in occupied_slots
             and k[2] == level
             and k[0] >= MIN_A
+            and is_valid_slot(k[0], k[1])
             and can_fit_pallet(v, item_len)
             and find_available_B(df, k[0], k[1], k[2]) is not None
         }
@@ -152,6 +162,7 @@ def find_location_by_sku(df, inventory_all, sku):
             if k in empty_slots
             and k[2] == level
             and k[0] >= MIN_A
+            and is_valid_slot(k[0], k[1])
             and can_fit_pallet(v, item_len)
             and find_available_B(df, k[0], k[1], k[2]) is not None
         }
@@ -168,6 +179,7 @@ def find_location_by_sku(df, inventory_all, sku):
             k: v for k, v in remaining.items()
             if k[2] == level
             and k[0] >= MIN_A
+            and is_valid_slot(k[0], k[1])
             and can_fit_pallet(v, item_len)
             and find_available_B(df, k[0], k[1], k[2]) is not None
         }
