@@ -1,5 +1,6 @@
 from db_helper import get_sku_info
 import pandas as pd
+import random
 
 MIN_A = 4
 
@@ -118,7 +119,8 @@ def find_location_by_size(df, item_len):
         }
 
         if candidates:
-            best = min(candidates, key=candidates.get)
+            top_k = sorted(candidates.items(), key=lambda x: x[1])[:5]
+            best = random.choice(top_k)[0]
             A, R, L = best
             B = find_available_B(df, A, R, L, item_len)
             return f"A{A}-R{R}-L{L}-B{B}", item_len, candidates[best]
@@ -177,7 +179,8 @@ def find_location_by_sku(df, inventory_all, sku):
         }
 
         if candidates:
-            best = min(candidates, key=candidates.get)
+            top_k = sorted(candidates.items(), key=lambda x: x[1])[:5]
+            best = random.choice(top_k)[0]
             A, R, L = best
             B = find_available_B(df, A, R, L, item_len)
             return f"A{A}-R{R}-L{L}-B{B}", item_len, candidates[best]
@@ -201,7 +204,8 @@ def find_location_by_sku(df, inventory_all, sku):
         }
 
         if candidates:
-            best = min(candidates, key=candidates.get)
+            top_k = sorted(candidates.items(), key=lambda x: x[1])[:5]
+            best = random.choice(top_k)[0]
             A, R, L = best
             B = find_available_B(df, A, R, L, item_len)
             return f"A{A}-R{R}-L{L}-B{B}", item_len, candidates[best]
@@ -224,7 +228,8 @@ def find_location_by_sku(df, inventory_all, sku):
         }
 
         if candidates:
-            best = min(candidates, key=candidates.get)
+            top_k = sorted(candidates.items(), key=lambda x: x[1])[:5]
+            best = random.choice(top_k)[0]
             A, R, L = best
             B = find_available_B(df, A, R, L, item_len)
             return f"A{A}-R{R}-L{L}-B{B}", item_len, candidates[best]
