@@ -113,7 +113,11 @@ def find_location_by_size(df, item_len):
                 (item_len <= 120 and can_fit_pallet(v, item_len))
                 
                 # ⭐ 超长货
-                or (item_len > 120 and is_fully_empty(df, k[0], k[1], k[2]))
+                or (
+                    item_len > 120
+                    and is_fully_empty(df, k[0], k[1], k[2])
+                    and get_slot_capacity(k[1]) == 120
+                )
             )
             and find_available_B(df, k[0], k[1], k[2], item_len) is not None
         }
@@ -173,7 +177,11 @@ def find_location_by_sku(df, inventory_all, sku):
                 (item_len <= 120 and can_fit_pallet(v, item_len))
                 
                 # ⭐ 超长货
-                or (item_len > 120 and is_fully_empty(df, k[0], k[1], k[2]))
+                or (
+                    item_len > 120
+                    and is_fully_empty(df, k[0], k[1], k[2])
+                    and get_slot_capacity(k[1]) == 120
+                )
             )
             and find_available_B(df, k[0], k[1], k[2], item_len) is not None
         }
@@ -198,7 +206,11 @@ def find_location_by_sku(df, inventory_all, sku):
                 (item_len <= 120 and can_fit_pallet(v, item_len))
                 
                 # ⭐ 超长货
-                or (item_len > 120 and is_fully_empty(df, k[0], k[1], k[2]))
+                or (
+                    item_len > 120
+                    and is_fully_empty(df, k[0], k[1], k[2])
+                    and get_slot_capacity(k[1]) == 120
+                )
             )
             and find_available_B(df, k[0], k[1], k[2], item_len) is not None
         }
@@ -222,7 +234,11 @@ def find_location_by_sku(df, inventory_all, sku):
                 (item_len <= 120 and can_fit_pallet(v, item_len))
                 
                 # ⭐ 超长货
-                or (item_len > 120 and is_fully_empty(df, k[0], k[1], k[2]))
+                or (
+                    item_len > 120
+                    and is_fully_empty(df, k[0], k[1], k[2])
+                    and get_slot_capacity(k[1]) == 120
+                )
             )
             and find_available_B(df, k[0], k[1], k[2], item_len) is not None
         }

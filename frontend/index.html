@@ -83,7 +83,7 @@ async function searchSKU() {
     resultDiv.innerHTML = "Searching...";
 
     try {
-        const response = await fetch("http://localhost:8000/search", {
+        const response = await fetch("http://10.153.57.190:8000/search", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
