@@ -2,15 +2,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from gdrive.gdrive_loader import download_daily_files
+from gdrive.gdrive_loader import download_daily_files, download_daily_files_safe
 from data_loader import load_data
 from sku_finder import find_location_by_sku
 from datetime import datetime
 from sku_finder import find_location_by_size
 from logger import log_search, mark_shift
 from gdrive.wms_fallback import query_wms_by_sku
+import threading
 
 app = FastAPI()
+
+lock = threading.Lock()
+is_refreshing = False
 
 # 允许前端访问
 app.add_middleware(
@@ -24,16 +28,19 @@ app.add_middleware(
 df = None
 inventory_all = None
 
+refresh_status = "idle"
 
-def refresh_data():
+@app.get("/refresh_status")
+def get_status():
+    return {"status": refresh_status}
+
+def init_data():
     global df, inventory_all
     inventory_file, empty_file = download_daily_files()
     df, inventory_all = load_data(inventory_file, empty_file)
 
-
-# 启动时先加载一次
-refresh_data()
-
+# 启动时执行
+init_data()
 
 class SKURequest(BaseModel):
     sku: str
@@ -46,12 +53,6 @@ class DriftRequest(BaseModel):
 @app.get("/")
 def home():
     return {"message": "Warehouse Web API is running"}
-
-
-@app.get("/refresh")
-def refresh():
-    refresh_data()
-    return {"success": True, "message": "Data refreshed"}
 
 @app.post("/drift")
 def report_drift(req: DriftRequest):
@@ -71,6 +72,47 @@ def report_drift(req: DriftRequest):
         "message": "Matching search record not found"
     }
 
+@app.get("/refresh")
+def refresh():
+    global is_refreshing, refresh_status
+
+    if is_refreshing:
+        return {"success": False, "message": "Already refreshing"}
+
+    is_refreshing = True
+
+    def task():
+        global is_refreshing
+        try:
+            refresh_data_async()
+        finally:
+            is_refreshing = False
+
+    threading.Thread(target=task, daemon=True).start()
+
+    return {
+        "success": True,
+        "message": "Refresh started in background"
+    }
+def refresh_data_async():
+    global df, inventory_all, refresh_status
+
+    try:
+        refresh_status = "running"   # ✅ 开始
+
+        inventory_file, empty_file = download_daily_files_safe()
+        new_df, new_inventory = load_data(inventory_file, empty_file)
+
+        with lock:
+            df = new_df
+            inventory_all = new_inventory
+
+        refresh_status = "done"   # ✅ 完成
+        print("Data hot-swapped successfully")
+
+    except Exception as e:
+        refresh_status = "error"  # ✅ 出错
+        print("Refresh failed:", e)
 
 @app.post("/search")
 def search_sku(req: SKURequest):
@@ -83,15 +125,17 @@ def search_sku(req: SKURequest):
             "success": False,
             "message": "SKU is empty"
         }
+    with lock:
+        local_df = df
+        local_inventory = inventory_all
 
-    location, item_len, space = find_location_by_sku(df, inventory_all, sku)
-
+    # 在锁外计算
+    location, item_len, space = find_location_by_sku(local_df, local_inventory, sku)
     # ================== 新增：从总表中提取商品条码 ==================
     barcode = ""
-    if inventory_all is not None and "SKU_LIST" in inventory_all.columns:
-        # 寻找 SKU_LIST 包含当前搜索词的那一行数据
-        match_row = inventory_all[
-            inventory_all["SKU_LIST"].apply(lambda lst: sku in lst if isinstance(lst, list) else False)
+    if local_inventory is not None and "SKU_LIST" in local_inventory.columns:
+        match_row = local_inventory[
+            local_inventory["SKU_LIST"].apply(lambda lst: sku in lst if isinstance(lst, list) else False)
         ]
         if not match_row.empty and "BARCODE" in match_row.columns:
             # 提取条码并进行清洗
@@ -125,7 +169,8 @@ def search_sku(req: SKURequest):
         }
 
         # ✅ 再使用
-        df.loc[len(df)] = new_row
+        with lock:
+            df.loc[len(df)] = new_row
 
         # ✅ 只记录一次
         log_search(
@@ -187,12 +232,12 @@ def search_sku(req: SKURequest):
                 R = int(parts[1].replace("R",""))
                 L = int(parts[2].replace("L",""))
                 B = int(parts[3].replace("B",""))
-                
-                df.loc[len(df)] = {
-                    "A": A, "R": R, "L": L, "B": B,
-                    "长": final_len, "宽": 0, "高": 0,
-                    "status": "occupied", "SKU_ALL": sku
-                }
+                with lock:
+                    df.loc[len(df)] = {
+                        "A": A, "R": R, "L": L, "B": B,
+                        "长": final_len, "宽": 0, "高": 0,
+                        "status": "occupied", "SKU_ALL": sku
+                    }
             except:
                 pass # 解析失败忽略
 
@@ -280,8 +325,8 @@ def confirm_putaway(req: ConfirmRequest):
         "status": "occupied",
         "SKU_ALL": sku
     }
-
-    df.loc[len(df)] = new_row
+    with lock:
+        df.loc[len(df)] = new_row
 
 
     return {

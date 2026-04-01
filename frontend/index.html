@@ -42,13 +42,54 @@
       border-radius: 8px;
       background: #f9f9f9;
     }
+    .menu-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.menu-btn {
+  font-size: 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.menu-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  margin-top: 5px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.menu-dropdown button {
+  width: 150px;
+  padding: 10px;
+  border: none;
+  background: white;
+  cursor: pointer;
+}
+
+.menu-dropdown button:hover {
+  background: #f0f0f0;
+}
   </style>
 </head>
 <body>
+<div class="menu-container">
+  <button class="menu-btn" onclick="toggleMenu()">⋮</button>
+
+  <div id="menuDropdown" class="menu-dropdown">
+    <button onclick="refreshData()">🔄 Refresh Data</button>
+  </div>
+</div>
   <h2>Warehouse SKU Search</h2>
 
   <input id="skuInput" type="text" placeholder="Scan or enter SKU" autofocus />
-
   <div class="result" id="result">Waiting for input...</div>
   <button id="conflictBtn" onclick="reportConflict()" style="display:none;">
     ⚠️ Location Occupied
@@ -67,6 +108,21 @@
 
 let currentResult = null;
 let currentSKU = null;
+
+function toggleMenu() {
+    const menu = document.getElementById("menuDropdown");
+    menu.style.display = (menu.style.display === "block") ? "none" : "block";
+}
+
+// 点击页面其他地方关闭菜单
+document.addEventListener("click", function(event) {
+    const menu = document.getElementById("menuDropdown");
+    const btn = document.querySelector(".menu-btn");
+
+    if (!btn.contains(event.target) && !menu.contains(event.target)) {
+        menu.style.display = "none";
+    }
+});
 
 // ================= 搜SKU =================
 async function searchSKU() {
@@ -138,6 +194,28 @@ async function searchSKU() {
 
     } catch (error) {
         resultDiv.innerHTML = "Request failed: " + error;
+    }
+}
+
+async function refreshData() {
+
+    const resultDiv = document.getElementById("result");
+
+    resultDiv.innerHTML = "Refreshing data...";
+
+    try {
+        const res = await fetch("http://10.153.57.190:8000/refresh");
+
+        const data = await res.json();
+
+        if (data.success) {
+            resultDiv.innerHTML = "✅ Data refreshed successfully!";
+        } else {
+            resultDiv.innerHTML = "❌ Refresh failed";
+        }
+
+    } catch (error) {
+        resultDiv.innerHTML = "❌ Error: " + error;
     }
 }
 
