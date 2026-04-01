@@ -88,6 +88,7 @@
   </div>
 </div>
   <h2>Warehouse SKU Search</h2>
+  <div id="refreshStatus" style="margin-bottom:10px; font-weight:bold;"></div>
 
   <input id="skuInput" type="text" placeholder="Scan or enter SKU" autofocus />
   <div class="result" id="result">Waiting for input...</div>
@@ -197,25 +198,84 @@ async function searchSKU() {
     }
 }
 
+async function pollRefreshStatus() {
+
+    const statusDiv = document.getElementById("refreshStatus");
+    const btn = document.querySelector(".menu-dropdown button");
+
+    const interval = setInterval(async () => {
+
+        try {
+            const res = await fetch("http://10.153.57.190:8000/refresh_status");
+            const data = await res.json();
+
+            if (data.status === "running") {
+                statusDiv.innerHTML = "⏳ Refreshing...";
+            }
+
+            if (data.status === "done") {
+                statusDiv.innerHTML = "✅ Refresh complete!";
+                clearInterval(interval);
+                isRefreshing = false;
+                btn.disabled = false;
+
+                // ⭐ 自动清掉提示（更专业）
+                setTimeout(() => {
+                    statusDiv.innerHTML = "";
+                }, 3000);
+            }
+
+            if (data.status === "error") {
+                statusDiv.innerHTML = "❌ Refresh failed";
+                clearInterval(interval);
+                isRefreshing = false;
+                btn.disabled = false;
+            }
+
+        } catch (e) {
+            clearInterval(interval);
+            isRefreshing = false;
+            btn.disabled = false;
+        }
+
+    }, 1000);
+}
+
+let isRefreshing = false;
+
 async function refreshData() {
 
-    const resultDiv = document.getElementById("result");
+    if (isRefreshing) {
+        alert("⏳ Already refreshing, please wait...");
+        return;
+    }
 
-    resultDiv.innerHTML = "Refreshing data...";
+    isRefreshing = true;
+
+    const resultDiv = document.getElementById("result");
+    const btn = document.querySelector(".menu-dropdown button");
+
+    document.getElementById("refreshStatus").innerHTML = "⏳ Refreshing...(you can keep scanning)";
+    btn.disabled = true;
 
     try {
         const res = await fetch("http://10.153.57.190:8000/refresh");
-
         const data = await res.json();
 
-        if (data.success) {
-            resultDiv.innerHTML = "✅ Data refreshed successfully!";
-        } else {
-            resultDiv.innerHTML = "❌ Refresh failed";
+        if (!data.success) {
+            resultDiv.innerHTML = "❌ " + data.message;
+            isRefreshing = false;
+            btn.disabled = false;
+            return;
         }
+
+        // ⭐ 开始轮询状态（关键！！）
+        pollRefreshStatus();
 
     } catch (error) {
         resultDiv.innerHTML = "❌ Error: " + error;
+        isRefreshing = false;
+        btn.disabled = false;
     }
 }
 

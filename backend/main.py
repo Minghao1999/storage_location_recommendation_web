@@ -10,6 +10,7 @@ from sku_finder import find_location_by_size
 from logger import log_search, mark_shift
 from gdrive.wms_fallback import query_wms_by_sku
 import threading
+from time import time
 
 app = FastAPI()
 
@@ -72,13 +73,29 @@ def report_drift(req: DriftRequest):
         "message": "Matching search record not found"
     }
 
+last_refresh_time = 0
+REFRESH_COOLDOWN = 100  
 @app.get("/refresh")
 def refresh():
-    global is_refreshing, refresh_status
+    global is_refreshing, refresh_status, last_refresh_time
 
+    now = time()
+
+    # 🚫 1. 冷却限制
+    if now - last_refresh_time < REFRESH_COOLDOWN:
+        return {
+            "success": False,
+            "message": "Too frequent. Please wait."
+        }
+
+    # 🚫 2. 正在刷新
     if is_refreshing:
-        return {"success": False, "message": "Already refreshing"}
+        return {
+            "success": False,
+            "message": "Already refreshing"
+        }
 
+    last_refresh_time = now
     is_refreshing = True
 
     def task():
@@ -92,8 +109,9 @@ def refresh():
 
     return {
         "success": True,
-        "message": "Refresh started in background"
+        "message": "Refresh started"
     }
+
 def refresh_data_async():
     global df, inventory_all, refresh_status
 
