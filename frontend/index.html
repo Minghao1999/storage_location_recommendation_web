@@ -210,7 +210,7 @@ async function pollRefreshStatus() {
             const data = await res.json();
 
             if (data.status === "running") {
-                statusDiv.innerHTML = "⏳ Refreshing...";
+                statusDiv.innerHTML = "⏳ Refreshing...(you can keep scanning)";
             }
 
             if (data.status === "done") {

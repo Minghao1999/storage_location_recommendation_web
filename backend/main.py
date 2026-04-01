@@ -212,15 +212,13 @@ def search_sku(req: SKURequest):
     # ===== SKU不存在（本地没找到）=====
     if item_len is None:
 
-        print("Local DB miss → querying WMS...")
-
         rows = cache_get(sku)
 
         if rows is not None:
             print("✅ Cache hit → using cached WMS data")
 
         else:
-            print("❌ Cache miss → querying WMS...")
+            print("❌ Cache miss → querying WMS")
             rows = query_wms_by_sku(sku)
 
             if rows:
