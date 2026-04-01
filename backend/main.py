@@ -11,6 +11,7 @@ from logger import log_search, mark_shift
 from gdrive.wms_fallback import query_wms_by_sku
 import threading
 from time import time
+from cache import get as cache_get, set as cache_set
 
 app = FastAPI()
 
@@ -213,7 +214,17 @@ def search_sku(req: SKURequest):
 
         print("Local DB miss → querying WMS...")
 
-        rows = query_wms_by_sku(sku)
+        rows = cache_get(sku)
+
+        if rows is not None:
+            print("✅ Cache hit → using cached WMS data")
+
+        else:
+            print("❌ Cache miss → querying WMS...")
+            rows = query_wms_by_sku(sku)
+
+            if rows:
+                cache_set(sku, rows)
 
         # ===== WMS 找到了 =====
         if rows:
