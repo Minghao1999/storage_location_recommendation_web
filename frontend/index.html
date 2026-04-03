@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Warehouse SKU Search</title>
+  <title>Put-Away Recommendation</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -87,7 +87,7 @@
     <button onclick="refreshData()">🔄 Refresh Data</button>
   </div>
 </div>
-  <h2>Warehouse SKU Search</h2>
+  <h2>Put-Away Recommendation</h2>
   <div id="refreshStatus" style="margin-bottom:10px; font-weight:bold;"></div>
 
   <input id="skuInput" type="text" placeholder="Scan or enter SKU" autofocus />
@@ -175,14 +175,14 @@ async function searchSKU() {
 
             currentResult = null;
 
-            if (data.message === "SKU not found in database") {
-
+            if (data.message && data.message.trim() === "SKU_NOT_IN_SYSTEM") {
                 // ⭐ 不再弹尺寸输入
                 document.getElementById("sizeInput").style.display = "none";
 
                 resultDiv.innerHTML = `
                     <b>SKU:</b> ${sku}<br><br>
-                    <b>Message:</b> WMS has not yet entered information.
+                    ⚠️ This SKU is not in system.<br><br>
+                    👉 Please put it in ANY location first, then scan again.
                 `;
 
                 document.getElementById("length").focus();
@@ -356,7 +356,7 @@ async function reportConflict() {
             document.getElementById("skuInput").value = "";
             document.getElementById("skuInput").focus();
 
-            document.getElementById("result").innerHTML = "Conflict logged. Scan next.";
+            document.getElementById("result").innerHTML = "Conflict logged. Scan again.";
 
         } else {
             alert("❌ Failed: " + data.message);

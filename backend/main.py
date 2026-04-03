@@ -282,21 +282,12 @@ def search_sku(req: SKURequest):
                 "message": "Found in WMS and Recommended new location",
                 "data": rows[:5]   
             }
-
-        # ===== WMS 也没有 =====
-        log_search(
-            sku=sku,
-            location=None,
-            item_len=None,
-            space=None,
-            success=False
-        )
-
-        return {
-            "success": False,
-            "sku": sku,
-            "message": "WMS has not yet entered information."
-        }
+            # ===== WMS 也没找到 =====
+        else:
+            return {
+                "success": False,
+                "message": "SKU_NOT_IN_SYSTEM"
+            }
 
     # ===== 没有库位 =====
     log_search(
